@@ -31,7 +31,7 @@ ObtainFortigate() {
 
 OpenSSH() {
     [ -z "${IP}" ] && IP=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
-    $SSHPASS -p $ROOT ssh -p $1 -o StrictHostKeyChecking=no -Tq root@$IP "$2"
+    $SSHPASS -p $ROOT ssh -p $1 -o StrictHostKeyChecking=no -o ConnectTimeout=120 -Tq root@$IP "$2"
     return 0
 }
 
@@ -211,7 +211,7 @@ obtain() {
             local ARGUMENTS="${@}"
             local ARGUMENTS=$(echo -e $ARGUMENTS | cut -d ' ' -f3-)
             restart $1 "$AUTHORIZATION"
-            sleep 600
+            sleep 360
             echo $($WORKER $ARGUMENTS -r 1)
             exit 0;
         fi
