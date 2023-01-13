@@ -1,0 +1,265 @@
+#!/bin/bash
+
+source $TOOL/argument "$@"
+
+FORTIGATE_HOST="https://${FORTIGATE}:${FORTIGATE_PORT}"
+PROXY_CONNECTION="http://${PROXY}:${PROXY_PORT}/"
+
+decode() {
+    echo ${1} | base64 --decode | jq -r ${2}
+    return 0
+}
+
+GetFromQuerystring() {
+    echo "$1" | awk -v key="$2" -F "[=&]" '{for (i=1; i<=NF; i++) if ($i == key) print $(i+1)}'
+    return 0
+}
+
+ObtainProxyPass() {
+    local query='SELECT `connectivity_ip`, `connectivity_port`, `connectivity_protocol` FROM `energia_europa_higeco_get_connection_information` WHERE `serial_higeco` = "%s" LIMIT 1';
+    printf "$query" "$1" | $MYSQL -s -w -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE} | awk '{printf "host=%s&port=%s&protocol=%s", $1, $2, $3}'
+    return 0
+}
+
+PROXY_CONNECTION_PASS=$(ObtainProxyPass "$HIGECO")
+
+ObtainFortigate() {
+    local EXTRACTOR='.results[] | {net:.proxyid[].proxy_dst[].subnet,peer:.rgwy} | @base64'
+    $CURL -k -G -d "access_token=ps3hzHnn3xmj15xkpjfykNsGczq8tj" --silent --connect-timeout 24 --retry 4 "${FORTIGATE_HOST}/api/v2/monitor/vpn/ipsec" | $JQ -rc "$EXTRACTOR"
+    return 0
+}
+
+OpenSSH() {
+    [ -z "${IP}" ] && IP=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
+    $SSHPASS -p $ROOT ssh -p $1 -o StrictHostKeyChecking=no -Tq root@$IP "$2"
+    return 0
+}
+
+Retry() {
+    local -r cmd="$1"
+    local -i retries=0
+    while true; do
+        retries+=1
+        if [ $retries -ge 4 ] ; then
+            return 2
+        fi
+        local response=$($cmd)
+        if ! [ -z "$response" ] ; then
+            echo $response
+            return 0
+        fi
+        sleep 24
+    done
+    return 1
+}
+
+getCIDR() {
+    $IPCALC -rn "$1" | sed -n '2p'
+    return 0
+}
+
+matchIP() {
+    local ip=$(cut -f1 -d "/" <<< "${1}")
+    local range=$(getCIDR "$2")
+    local match=$($GREPCIDR ${range} <(echo $ip))
+    if [[ "$match" == "$ip" ]] ; then
+        return 0
+    fi
+    return 1
+}
+
+getPeer() {
+    [ -z "${FORTIGATE_DATA}" ] && FORTIGATE_DATA=$(ObtainFortigate)
+    for item in ${FORTIGATE_DATA[@]}; do
+        local net=$(decode $item '.net')
+        local peer=$(decode $item '.peer')
+        if [ "$net" == "0.0.0.0-255.255.255.255" ] ; then
+            continue
+        fi
+        matchIP "$1" "$net"
+        if [ $? -eq 0 ] ; then
+            echo $peer
+            return 0
+        fi
+    done
+    return 1
+}
+
+getGateway() {
+    OpenSSH ${1} "ip route | grep default | grep -v linkdown | awk '{print \$3}'"
+    return 0
+}
+
+getInterface() {
+    OpenSSH ${1} "ip route show default | grep -v linkdown | awk '/default via/ {print \$5}'"
+    return 0
+}
+
+getPrivate() {
+    OpenSSH ${1} "ip -4 -brief address show $2 | awk '{print \$NF}'"
+    return 0
+}
+
+getMAC() {
+    OpenSSH ${1} "ip n show $2 | awk '{print \$5}'"
+    return 0
+}
+
+getOUI() {
+    local oui=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://macvendors.co/api/$2")
+    $JQ -rc '.result.company' <<< "$oui"
+    return 0
+}
+
+getPublic() {
+    OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://wtfismyip.com/text"
+    return 0
+}
+
+getISP() {
+    local isp=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://ipinfo.io/$2/json")
+    $JQ -rc '.org' <<< "$isp"
+    return 0
+}
+
+getSSHPort() {
+    local QUERY='[{"act":"getServerStatus","DATI":{}}]'
+    local EXTRACTOR='.DATI[0].DATI[0].sshPort'
+    local SSHPORT=$($CURL -s -k -X POST --compressed "$PROXY_CONNECTION/serverCgi?${PROXY_CONNECTION_PASS}" -b "$1" --silent --connect-timeout 24 --retry 4 --data-urlencode "query=$QUERY" | $JQ -rc "${EXTRACTOR}")
+    if [ -z "${SSHPORT}" ] ; then
+        return 1
+    fi
+    echo $SSHPORT
+    return 0
+}
+
+insert() {
+    local QUERY='INSERT IGNORE INTO `energia_europa_higeco_get_connection_information_output` (`id`, `serial_higeco`, `gateway`, `private`, `mac`, `oui`, `isp`, `ip`) VALUES (NULL, "%s", "%s", "%s", "%s", "%s", "%s", "%s")';
+    printf "$QUERY" "$1" "$2" "$3" "$4" "$5" "$6" "$7" | $MYSQL -s -w -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE}
+    if [ $? -ne 0 ] ; then
+        echo "$1 - I was unable to execute this insert query"
+        return 1
+    fi
+    return 0
+}
+
+delete() {
+    local QUERY='DELETE FROM `energia_europa_higeco_get_connection_information_output` WHERE `serial_higeco` = "%s"';
+    printf "$QUERY" ${1} | $MYSQL -s -w -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE}
+    if [ $? -ne 0 ] ; then
+        echo "$1 - I was unable to remove the results"
+        return 1
+    fi
+    return 0
+}
+
+check() {
+    local QUERY='[{"act":"getStatus"}]'
+    local status=$($CURL -k -s -X POST --data "query=${QUERY}" --output /dev/null --connect-timeout 24 --retry 4 --write-out '%{http_code}\n' --compressed "$PROXY_CONNECTION/userCgi?${PROXY_CONNECTION_PASS}")
+    if [ "200" == "$status" ] ; then
+        return 0;
+    fi
+    return 1
+}
+
+authorization() {
+    local QUERY='[{"act":"getStatus"}]'
+    local EXTRACTOR='.DATI[0].DATI'
+    local CONFIGURATION=$($CURL -s -k -X POST --compressed "$PROXY_CONNECTION/userCgi?${PROXY_CONNECTION_PASS}" --silent --connect-timeout 24 --retry 4 --data "p=$PASSWORD&u=$USERNAME&query=$QUERY" | $JQ -rc "${EXTRACTOR}")
+    if [ -z "${CONFIGURATION}" ] ; then
+        echo "${1} - Is unreachable"
+        exit 1
+    fi
+    local AUTHORIZATION=$($JQ -rc .k <<< "${CONFIGURATION}")
+    echo "gwc=$AUTHORIZATION"
+    return 0
+}
+
+restart() {
+    local QUERY='[{"act":"rbtStm","DATI":{}}]'
+    local QUERY=$(printf "$QUERY" ${1})
+    local EXTRACTOR='.DATI[0].ERR'
+    local DATA=$($CURL -s -k -X POST --compressed "$PROXY_CONNECTION/mainGwcCgi?${PROXY_CONNECTION_PASS}" -b "$3" --silent --connect-timeout 24 --retry 4 --data-urlencode "query=$QUERY" | $JQ -rc "${EXTRACTOR}")
+    if [ -z "${DATA}" ] || [ "$DATA" -ne 0 ] ; then
+        echo "${1} - Not execute reboot. Complete operation in manual mode."
+        exit 1
+    fi
+    return 0
+}
+
+modem() {
+    local QUERY='[{"act":"getInfo","sn":"%s","DATI":{}}]'
+    local QUERY=$(printf "$QUERY" "${1}")
+    local AUTHORIZATION=$(authorization ${1})
+    local EXTRACTOR='.DATI[0].DATI.ppp0.modem.manufacturer + " -> " + .DATI[0].DATI.ppp0.modem.model'
+    local MODEM=$($CURL -s -k -X POST --compressed "$PROXY_CONNECTION/connection.cgi?${PROXY_CONNECTION_PASS}" -b "$AUTHORIZATION" --silent --connect-timeout 24 --retry 4 --data-urlencode "query=$QUERY" | $JQ -rc "${EXTRACTOR}")
+    if [ -z "${MODEM}" ] ; then
+        return 1
+    fi
+    echo $MODEM
+    return 0 
+}
+
+obtain() {
+    local WEBPORT=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'port')
+    local SSHPORT=$(($WEBPORT + 1))
+    if [ "$2" = "ipsec-dialup" ] || [ "$2" = "ipsec-ptp" ] ; then
+        SSHPORT=22
+    elif [ "$2" = "higeco-backdoor" ] ; then
+        local AUTHORIZATION=$(authorization ${1})
+        if [ -z "${REBOOTED}" ] || [[ $REBOOTED -ne 1 ]] ; then
+            local ARGUMENTS="${@}"
+            local ARGUMENTS=$(echo -e $ARGUMENTS | cut -d ' ' -f3-)
+            restart $1 "$AUTHORIZATION"
+            sleep 600
+            echo $($WORKER $ARGUMENTS -r 1)
+            exit 0;
+        fi
+        local COMMAND=$(printf 'getSSHPort "%s"' "$AUTHORIZATION")
+        local SSHPORT=$(Retry "$COMMAND")
+        if [ -z "${SSHPORT}" ] ; then
+            echo "${1} - JSON as response not contain a valid TCP port"
+            exit 1
+        fi
+    fi
+    delete "$1"
+    if [ $? -ne 0 ] ; then
+        return 1
+    fi
+    local interface=$(getInterface $SSHPORT)
+    local gateway=$(getGateway $SSHPORT)
+    local private=$(getPrivate $SSHPORT "$interface")
+    local public='0.0.0.0'
+    if [ "$2" = "ipsec-dialup" ] || [ "$2" = "ipsec-ptp" ] ; then
+        public=$(getPeer "$private")
+    else 
+        public=$(getPublic $SSHPORT)
+    fi
+    local isp=$(getISP $SSHPORT "$public")
+    if [ "$interface" != "ppp0" ] ; then
+        local mac=$(getMAC $SSHPORT "$gateway")
+        local oui=$(getOUI $SSHPORT "$mac")
+    else
+        local mac="00:00:00:00:00:00"
+        local oui=$(modem "$HIGECO")
+    fi
+    insert "$1" "$gateway" "$private" "$mac" "$oui" "$isp" "$public"
+    if [ $? -ne 0 ] ; then
+        return 1
+    fi
+    return 0
+}
+
+check
+if [ $? -ne 0 ] ; then
+    echo "${HIGECO} - Have an inbound connectivity problem"
+    exit 1
+fi
+
+obtain $HIGECO $TYPE "$@"
+if [ $? -ne 0 ] ; then
+    echo "${HIGECO} - Have a problem with query"
+    exit 1
+fi
+
+exit 0
