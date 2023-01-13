@@ -99,7 +99,7 @@ trap runner SIGINT SIGQUIT SIGTERM
 $MYSQL -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE} --batch --raw -s -N -e "${query}" | while read higeco type; do
     sleep 4
     echo "Call radar for device $higeco"
-    $WORKER -s $higeco -t $type
+    $WORKER -s $higeco -t $type &
 done
 
 while sleep 8; do
