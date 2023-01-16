@@ -92,7 +92,7 @@ export IPCALC
 export SSHPASS
 export GREPCIDR
 
-query='SELECT `serial_higeco`, `connectivity_type` FROM `energia_europa_higeco_get_connection_information` WHERE device_serial = 14062 ORDER BY `device_serial` ASC';
+query='SELECT `serial_higeco`, `connectivity_type` FROM `energia_europa_higeco_get_connection_information` ORDER BY `device_serial` ASC';
 
 trap runner SIGINT SIGQUIT SIGTERM
 
