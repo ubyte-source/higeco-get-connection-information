@@ -145,7 +145,7 @@ getSSHPort() {
 
 insert() {
     local array=()
-    local QUERY='INSERT IGNORE INTO `energia_europa_higeco_get_connection_information_output` (`id`, `serial_higeco`, `gateway`, `private`, `nat`, `mac`, `oui`, `isp`, `ip`) VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, %s)';
+    local QUERY='INSERT IGNORE INTO `energia_europa_higeco_get_connection_information_output` (`serial_higeco`, `gateway`, `private`, `nat`, `mac`, `oui`, `isp`, `ip`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `gateway` = VALUES(`gateway`), `private` = VALUES(`private`), `nat` = VALUES(`nat`), `mac` = VALUES(`mac`), `oui` = VALUES(`oui`), `isp` = VALUES(`isp`), `ip` = VALUES(`ip`)';
     for i in "$@" ; do
         local value='NULL'
         [[ "$i" != "NULL" ]] && ! [[ -z "${value}" ]] && value=$(printf '"%s"' "$i")
@@ -155,16 +155,6 @@ insert() {
         $MYSQL -s -w -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE}
     if [ $? -ne 0 ] ; then
         echo "$1 - I was unable to execute this insert query"
-        return 1
-    fi
-    return 0
-}
-
-delete() {
-    local QUERY='DELETE FROM `energia_europa_higeco_get_connection_information_output` WHERE `serial_higeco` = "%s"';
-    printf "$QUERY" ${1} | $MYSQL -s -w -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE}
-    if [ $? -ne 0 ] ; then
-        echo "$1 - I was unable to remove the results"
         return 1
     fi
     return 0
@@ -238,10 +228,6 @@ obtain() {
             echo "${1} - JSON as response not contain a valid TCP port"
             exit 1
         fi
-    fi
-    delete "$1"
-    if [ $? -ne 0 ] ; then
-        return 1
     fi
     local interface=$(getInterface $SSHPORT)
     local gateway=$(getGateway $SSHPORT)
