@@ -246,6 +246,9 @@ obtain() {
     local interface=$(getInterface $SSHPORT)
     local gateway=$(getGateway $SSHPORT)
     local private=$(getPrivate $SSHPORT "$interface")
+    if [ -z "$interface" ] || [ -z "$gateway" ] || [ -z "$private" ] ; then
+        return 2
+    fi
     local public='0.0.0.0'
     local nat=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
     if [ "$2" = "ipsec-dialup" ] || [ "$2" = "ipsec-ptp" ] ; then
@@ -275,8 +278,9 @@ if [ $? -ne 0 ] ; then
 fi
 
 obtain $HIGECO $TYPE "$@"
-if [ $? -ne 0 ] ; then
-    echo "${HIGECO} - Have a problem with query"
+errors=$?
+if [ $errors -ne 0 ] ; then
+    echo "${HIGECO} - Have a problem #$errors"
     exit 1
 fi
 
