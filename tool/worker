@@ -148,7 +148,7 @@ insert() {
     local QUERY='INSERT IGNORE INTO `energia_europa_higeco_get_connection_information_output` (`id`, `serial_higeco`, `gateway`, `private`, `nat`, `mac`, `oui`, `isp`, `ip`) VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, %s)';
     for i in "$@" ; do
         local value='NULL'
-        [[ "$i" != "NULL" ]] && value=$(printf '"%s"' "$i")
+        [[ "$i" != "NULL" ]] && [[ -z "${value}" ]] && value=$(printf '"%s"' "$i")
         array+=("$value")
     done
     printf "$QUERY" "${array[0]}" "${array[1]}" "${array[2]}" "${array[3]}" "${array[4]}" "${array[5]}" "${array[6]}" "${array[7]}" |
