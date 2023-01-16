@@ -101,7 +101,7 @@ for result in "${RESPONSE[@]}" ; do
     type=$(echo $result | awk '{print $2}')
     higeco=$(echo $result | awk '{print $1}')
     echo "Call radar for device $higeco"
-    $WORKER -s "$higeco" -t "$type"
+    $WORKER -s "$higeco" -t "$type" &
     sleep 4
 done
 
