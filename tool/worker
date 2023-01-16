@@ -106,7 +106,12 @@ getMAC() {
 }
 
 getPublic() {
-    OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://wtfismyip.com/text"
+    OpenSSH ${1} 'wget -q -T 24 -t 4 -O- "http://wtfismyip.com/text"'
+    return 0
+}
+
+getTraceroute() {
+    OpenSSH ${1} "traceroute -In $1 | tail -n +2 | awk '{print $2}'"
     return 0
 }
 
@@ -115,7 +120,7 @@ getOUI() {
     if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
         $CURL -k --silent --connect-timeout 24 --retry 4 "https://macvendors.co/api/$3" | $JQ -rc "${EXTRACTOR}"
     else
-        local vendor=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://macvendors.co/api/$3")
+        local vendor=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- \"http://macvendors.co/api/$3\"")
         $JQ -rc "${EXTRACTOR}" <<< "$vendor"
     fi
     return 0
@@ -126,7 +131,7 @@ getISP() {
     if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
         $CURL -k --silent --connect-timeout 24 --retry 4 "https://ipinfo.io/$3/json" | $JQ -rc "${EXTRACTOR}"
     else
-        local isp=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://ipinfo.io/$3/json")
+        local isp=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- \"http://ipinfo.io/$3/json\"")
         $JQ -rc "${EXTRACTOR}" <<< "$isp"
     fi
     return 0
@@ -145,7 +150,7 @@ getSSHPort() {
 
 insert() {
     local array=()
-    local QUERY='INSERT IGNORE INTO `energia_europa_higeco_get_connection_information_output` (`serial_higeco`, `gateway`, `private`, `nat`, `mac`, `oui`, `isp`, `ip`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `gateway` = VALUES(`gateway`), `private` = VALUES(`private`), `nat` = VALUES(`nat`), `mac` = VALUES(`mac`), `oui` = VALUES(`oui`), `isp` = VALUES(`isp`), `ip` = VALUES(`ip`)';
+    local QUERY='INSERT INTO `energia_europa_higeco_get_connection_information_output` (`serial_higeco`, `gateway`, `private`, `nat`, `mac`, `oui`, `isp`, `ip`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `gateway` = VALUES(`gateway`), `private` = VALUES(`private`), `nat` = VALUES(`nat`), `mac` = VALUES(`mac`), `oui` = VALUES(`oui`), `isp` = VALUES(`isp`), `ip` = VALUES(`ip`)';
     for i in "$@" ; do
         local value='NULL'
         [[ "$i" != "NULL" ]] && ! [[ -z "${value}" ]] && value=$(printf '"%s"' "$i")
