@@ -32,6 +32,7 @@ ObtainFortigate() {
 OpenSSH() {
     [ -z "${IP}" ] && IP=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
     $SSHPASS -p $ROOT ssh -p $1 -o StrictHostKeyChecking=no -o ConnectTimeout=120 -Tq root@$IP "$2"
+    exit 1
     return 0
 }
 
@@ -106,8 +107,8 @@ getMAC() {
 }
 
 getOUI() {
-    local oui=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://macvendors.co/api/$2")
-    $JQ -rc '.result.company' <<< "$oui"
+    local vendor=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://macvendors.co/api/$2")
+    $JQ -rc '.result.company' <<< "$vendor"
     return 0
 }
 
@@ -226,6 +227,7 @@ obtain() {
     if [ $? -ne 0 ] ; then
         return 1
     fi
+
     local interface=$(getInterface $SSHPORT)
     local gateway=$(getGateway $SSHPORT)
     local private=$(getPrivate $SSHPORT "$interface")

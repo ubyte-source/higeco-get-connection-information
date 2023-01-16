@@ -92,14 +92,16 @@ export IPCALC
 export SSHPASS
 export GREPCIDR
 
-query='SELECT `serial_higeco`, `connectivity_type` FROM `energia_europa_higeco_get_connection_information`';
+query='SELECT `serial_higeco`, `connectivity_type` FROM `energia_europa_higeco_get_connection_information` where serial_higeco = "0303TMEGIEF2"';
 
 trap runner SIGINT SIGQUIT SIGTERM
 
-$MYSQL -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE} --batch --raw -s -N -e "${query}" | while read higeco type; do
-    sleep 4
+mapfile RESPONSE < <($MYSQL -u${DATABASE_USERNAME} -p${DATABASE_PASSWORD} -h ${DATABASE_ENDPOINT} --port=${DATABASE_PORT} --database ${DATABASE} --batch -s -N -e "${query}")
+for result in "${RESPONSE[@]}" ; do
+    type=$(echo $result | awk '{print $2}')
+    higeco=$(echo $result | awk '{print $1}')
     echo "Call radar for device $higeco"
-    $WORKER -s $higeco -t $type &
+    $WORKER -s "$higeco" -t "$type"
 done
 
 while sleep 8; do
