@@ -32,7 +32,6 @@ ObtainFortigate() {
 OpenSSH() {
     [ -z "${IP}" ] && IP=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
     $SSHPASS -p $ROOT ssh -p $1 -o StrictHostKeyChecking=no -o ConnectTimeout=120 -Tq root@$IP "$2"
-    exit 1
     return 0
 }
 
@@ -227,7 +226,6 @@ obtain() {
     if [ $? -ne 0 ] ; then
         return 1
     fi
-
     local interface=$(getInterface $SSHPORT)
     local gateway=$(getGateway $SSHPORT)
     local private=$(getPrivate $SSHPORT "$interface")
