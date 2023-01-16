@@ -62,7 +62,7 @@ matchIP() {
     local ip=$(cut -f1 -d "/" <<< "${1}")
     local range=$(getCIDR "$2")
     local match=$($GREPCIDR ${range} <(echo $ip))
-    if [[ "$match" == "$ip" ]] ; then
+    if [ "$match" = "$ip" ] ; then
         return 0
     fi
     return 1
@@ -73,7 +73,7 @@ getPeer() {
     for item in ${FORTIGATE_DATA[@]}; do
         local net=$(decode $item '.net')
         local peer=$(decode $item '.peer')
-        if [ "$net" == "0.0.0.0-255.255.255.255" ] ; then
+        if [ "$net" = "0.0.0.0-255.255.255.255" ] ; then
             continue
         fi
         matchIP "$1" "$net"
@@ -111,12 +111,24 @@ getPublic() {
 }
 
 getOUI() {
-    wget -q -T 24 -t 4 -O- "http://macvendors.co/api/$1" | $JQ -rc '.result.company'
+    local EXTRACTOR='.result.company'
+    if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
+        $CURL -k --silent --connect-timeout 24 --retry 4 "https://macvendors.co/api/$3" | $JQ -rc "${EXTRACTOR}"
+    else
+        local vendor=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://macvendors.co/api/$3")
+        $JQ -rc "${EXTRACTOR}" <<< "$vendor"
+    fi
     return 0
 }
 
 getISP() {
-    wget -q -T 24 -t 4 -O- "http://ipinfo.io/$1/json" | $JQ -rc '.org'
+    local EXTRACTOR='.org'
+    if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
+        $CURL -k --silent --connect-timeout 24 --retry 4 "https://ipinfo.io/$3/json" | $JQ -rc "${EXTRACTOR}"
+    else
+        local isp=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- http://ipinfo.io/$3/json")
+        $JQ -rc "${EXTRACTOR}" <<< "$isp"
+    fi
     return 0
 }
 
@@ -161,7 +173,7 @@ delete() {
 check() {
     local QUERY='[{"act":"getStatus"}]'
     local status=$($CURL -k -s -X POST --data "query=${QUERY}" --output /dev/null --connect-timeout 24 --retry 4 --write-out '%{http_code}\n' --compressed "$PROXY_CONNECTION/userCgi?${PROXY_CONNECTION_PASS}")
-    if [ "200" == "$status" ] ; then
+    if [ "200" = "$status" ] ; then
         return 0;
     fi
     return 1
@@ -241,10 +253,10 @@ obtain() {
     else 
         public=$(getPublic $SSHPORT)
     fi
-    local isp=$(getISP "$public")
+    local isp=$(getISP $SSHPORT "$2" "$public")
     if [ "$interface" != "ppp0" ] ; then
         local mac=$(getMAC $SSHPORT "$gateway")
-        local oui=$(getOUI "$mac")
+        local oui=$(getOUI $SSHPORT "$2" "$mac")
     else
         local mac="00:00:00:00:00:00"
         local oui=$(modem "$HIGECO")
