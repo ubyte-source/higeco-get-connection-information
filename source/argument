@@ -1,0 +1,56 @@
+#!/bin/bash
+
+while getopts s:r: options; do
+   case ${options} in
+      s) HIGECO=${OPTARG} ;;
+      r) REBOOTED=${OPTARG} ;;
+   esac
+done
+
+declare -a RESPONSE=()
+
+warning() {
+    local notice='{"name": "%s", "type": "%s", "notice": "%s"}'
+    local explan=$(printf "$notice" "$1" "$2" "$3")
+    RESPONSE+=("${explan}")
+}
+
+if ! [ -v JQ ] ; then
+  warning 'JQ' 'export' 'Specifies the JQ.'
+fi
+
+if ! [ -v CURL ] ; then
+  warning 'CURL' 'export' 'Specifies the CURL.'
+fi
+
+if ! [ -v MYSQL ] ; then
+  warning 'MYSQL' 'export' 'Specifies the MYSQL.'
+fi
+
+if ! [ -v WORKER ] ; then
+  warning 'WORKER' 'export' 'Specifies the WORKER.'
+fi
+
+if ! [ -v IPCALC ] ; then
+  warning 'IPCALC' 'export' 'Specifies the IPCALC.'
+fi
+
+if ! [ -v SSHPASS ] ; then
+  warning 'SSHPASS' 'export' 'Specifies the SSHPASS.'
+fi
+
+if ! [ -v SSH ] ; then
+  warning 'SSH' 'export' 'Specifies the SSH.'
+fi
+
+if ! [ -v HIGECO ] ; then
+  warning 'HIGECO' '-s' 'Specifies the Higeco.'
+fi
+
+if [ ${#RESPONSE[@]} -ne 0 ] ; then
+    notice=$(printf "%s," "${RESPONSE[@]}")
+    printf '{"status": false, "notice": "Configuration missing.", "errors": [%s]}' "${notice%?}"
+    exit 0
+fi
+
+unset RESPONSE

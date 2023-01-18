@@ -1,0 +1,49 @@
+{
+	"name": "energia-source/higeco-get-connection-information",
+	"type": "project",
+	"description": "Higeco get connection information",
+	"keywords": [
+		"ubyte",
+		"energia europa",
+		"higeco",
+		"connection"
+	],
+	"homepage": "https://github.com/energia-source/higeco-get-connection-information",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Paolo Fabris",
+			"email": "support@ubyte.it",
+			"homepage": "https://www.ubyte.it/",
+			"role": "Developer"
+		}
+	],
+	"require": {
+		"php": ">=7.2",
+		"ext-mbstring": "*",
+		"ext-curl": "*",
+		"ext-zip": "*",
+		"knight/armor": "3.3.0",
+		"knight/artifact-iam": "2.7.3",
+		"knight/artifact-redis": "1.7.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"configurations\\": "configurations/"
+		}
+	},
+	"repositories": [
+		{
+			"type": "vcs",
+			"url": "https://github.com/energia-source/knight-armor"
+		},
+		{
+			"type": "vcs",
+			"url": "https://github.com/energia-source/knight-artifact-iam"
+		},
+		{
+			"type": "vcs",
+			"url": "https://github.com/energia-source/knight-artifact-redis"
+		}
+	]
+}

@@ -1,0 +1,94 @@
+#!/bin/bash
+
+JQ=/usr/bin/jq
+CURL=/usr/bin/curl
+MYSQL=/usr/bin/mysql
+WORKER=${SOURCE}/worker
+IPCALC=/usr/bin/ipcalc
+SSHPASS=/usr/bin/sshpass
+SSH=/usr/bin/ssh
+
+echo "HTTP/1.0 200 OK"
+echo "Content-type: application/json\n\n"
+echo ""
+
+declare -a RESPONSE=()
+
+warning() {
+    local notice='{"name": "%s", "type": "%s", "notice": "%s"}'
+    local explan=$(printf "$notice" "$1" "$2" "$3")
+    RESPONSE+=("${explan}")
+}
+
+if ! [ -v DATABASE ] ; then
+    warning 'DATABASE' 'environment' 'Specifies the MySQL database.'
+fi
+
+if ! [ -v DATABASE_ENDPOINT ] ; then
+    warning 'DATABASE_ENDPOINT' 'environment' 'Specifies the MySQL database endpoint.'
+fi
+
+if ! [ -v DATABASE_PORT ] ; then
+    warning 'DATABASE_PORT' 'environment' 'Specifies the MySQL database port.'
+fi
+
+if ! [ -v DATABASE_USERNAME ] ; then
+    warning 'DATABASE_USERNAME' 'environment' 'Specifies the MySQL username.'
+fi
+
+if ! [ -v DATABASE_PASSWORD ] ; then
+    warning 'DATABASE_PASSWORD' 'environment' 'Specifies the MySQL password.'
+fi
+
+if ! [ -v PROXY ] ; then
+    warning 'PROXY' 'environment' 'Specifies the proxy.'
+fi
+
+if ! [ -v PROXY_PORT ] ; then
+    warning 'PROXY_PORT' 'environment' 'Specifies the proxy port.'
+fi
+
+if ! [ -v USERNAME ] ; then
+    warning 'USERNAME' 'environment' 'Specifies the GWC username.'
+fi
+
+if ! [ -v ROOT ] ; then
+    warning 'ROOT' 'environment' 'Specifies the root password.'
+fi
+
+if ! [ -v PASSWORD ] ; then
+    warning 'PASSWORD' 'environment' 'Specifies the GWC password.'
+fi
+
+if ! [ -v FORTIGATE ] ; then
+    warning 'FORTIGATE' 'environment' 'Specifies the your Fortigate ip.'
+fi
+
+if ! [ -v FORTIGATE_PORT ] ; then
+    warning 'FORTIGATE_PORT' 'environment' 'Specifies the your Fortigate API port.'
+fi
+
+if ! [ -v FORTIGATE_TOKEN ] ; then
+    warning 'FORTIGATE_TOKEN' 'environment' 'Specifies the your Fortigate Token.'
+fi
+
+if [ ${#RESPONSE[@]} -ne 0 ] ; then
+    notice=$(printf "%s," "${RESPONSE[@]}")
+    printf '{"status": false, "notice": "Configuration missing.", "errors": [%s]}' "${notice%?}"
+    exit 0
+fi
+
+unset RESPONSE
+
+export JQ
+export CURL
+export MYSQL
+export WORKER
+export IPCALC
+export SSHPASS
+export SSH
+
+HIGECO=$(basename "${DOCUMENT_URI}")
+$WORKER -s "$HIGECO"
+
+exit 0
