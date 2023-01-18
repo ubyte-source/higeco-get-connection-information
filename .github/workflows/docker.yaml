@@ -25,8 +25,9 @@ jobs:
         uses: docker://ubyte/developer-composer:latest
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
-        run: |
-          update
+        with:
+          command: |
+            update
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
