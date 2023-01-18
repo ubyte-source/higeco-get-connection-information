@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
       - name: Composer update action
-        uses: ubyte/developer-composer:latest
+        uses: ubyte/developer-composer
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
        
