@@ -54,11 +54,11 @@ Retry() {
 }
 
 ip2int() {
-    local readonly ip="${1}"
-    local ipa=$(echo "${ip}" | cut -d'.' -f1)
-    local ipb=$(echo "${ip}" | cut -d'.' -f2)
-    local ipc=$(echo "${ip}" | cut -d'.' -f3)
-    local ipd=$(echo "${ip}" | cut -d'.' -f4)
+    local ip="${1}"
+    local ipa=$(echo "${ip}" | cut -d '.' -f1)
+    local ipb=$(echo "${ip}" | cut -d '.' -f2)
+    local ipc=$(echo "${ip}" | cut -d '.' -f3)
+    local ipd=$(echo "${ip}" | cut -d '.' -f4)
 
     echo $(( ipa * 256**3 + ipb * 256**2 + ipc * 256 + ipd ))
 
@@ -66,8 +66,8 @@ ip2int() {
 }
 
 check() {
-    local subnet=$(echo "${1}" | cut -d'/' -f1)
-    local cidr=$(echo "${1}" | cut -d'/' -f2)
+    local subnet=$(echo "${1}" | cut -d '/' -f1)
+    local cidr=$(echo "${1}" | cut -d '/' -f2)
     local netmask=$(( 0xFFFFFFFF << $(( 32 - ${cidr} )) ))
     local id=$(( netmask & $(ip2int ${2}) ))
     local subnet=$(( netmask & $(ip2int ${subnet}) ))
@@ -86,7 +86,12 @@ getPeer() {
             continue
         fi
         local ip=$(cut -f1 -d "/" <<< "${1}")
-        local range=$($IPCALC -rn "$net" | sed -n '2p')
+        if [[ "$net" == *"/"* ]] ; then
+            local max=$($IPCALC --maxaddr "$net" | sed 's/MAXADDR=//g')
+            local min=$($IPCALC --minaddr "$net" | sed 's/MINADDR=//g')
+            local net="${min}-${max}"
+        fi
+        local cidr=$($IPCALC -d "$net" | sed -n '2p' | awk '{print $2}')
         check $cidr $ip
         if [ $? -eq 0 ] ; then
             echo $peer
