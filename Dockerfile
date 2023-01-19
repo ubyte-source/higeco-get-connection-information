@@ -31,7 +31,7 @@ COPY ./ssl/certificate.key /etc/ssl/certificate.key
 COPY ./ssl/certificate.pem /etc/ssl/certificate.pem
 
 RUN adduser -D -g www www && \
-    chown -R www:www /var/lib/nginx /var/log/nginx /app /var/log/php81 && \
+    chown -R www:www /var/lib/nginx /var/log/nginx /app /var/log/php81 /etc/nginx && \
     chmod +x /wrapper.sh /app && \
     rm -Rf /app/ssl /app/wrapper.sh /app/nginx.conf /etc/nginx/sites-enabled /etc/nginx/sites-available && \
     cp -r /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && \
