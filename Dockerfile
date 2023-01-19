@@ -24,14 +24,11 @@ RUN apk update && \
     apk add --no-cache php81 php81-fpm php81-openssl php81-zip php81-bcmath php81-curl php81-ctype php81-phar php81-common php81-mbstring php81-fileinfo php81-pecl-redis && \
     rm -rf /var/cache/apk/*
 
-COPY ./source /app
-COPY ./configurations /app/configurations
-COPY ./handlers /app/handlers
-COPY ./www /app/www
+COPY ./ /app
+COPY ./wrapper.sh /wrapper.sh
+COPY ./nginx.conf /etc/nginx/nginx.conf
 COPY ./ssl/certificate.key /etc/ssl/certificate.key
 COPY ./ssl/certificate.pem /etc/ssl/certificate.pem
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY wrapper.sh /
 
 RUN adduser -D -g www www && \
     chown -R www:www /var/lib/nginx /var/log/nginx /app /var/log/php81 && \
