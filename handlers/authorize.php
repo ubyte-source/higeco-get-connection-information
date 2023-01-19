@@ -16,8 +16,7 @@ $authorizing_token = KRequest::header(Request::HEADER_AUTHOTIZATION);
 if (null === $authorizing_token) Sso::unauthorized(false);
 
 Cache::get(__file__, $authorizing_token, function () use ($application_basename) {
-    if (false === Sso::requestMandatoryPolicies($application_basename . chr(47) . 'sync'))
-        Sso::unauthorized(false);
+    if (false === Sso::requestMandatoryPolicies($application_basename . chr(47) . 'sync')) Sso::unauthorized(false);
     return true;
 });
 Output::print(true);

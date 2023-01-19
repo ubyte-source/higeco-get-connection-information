@@ -27,5 +27,14 @@ $handler = parse_url($_SERVER[Navigator::REQUEST_URI], PHP_URL_PATH);
 $handler_match = dirname($handler);
 $handler_match_secure = implode(chr(124), SECURE);
 if (preg_match('/\.(' . $handler_match_secure . ')/', $handler_match)) Output::print(false);
-include BASE_HANDLERS . 'authorize' . chr(46) . 'php';
+
+$handler = trim($handler, chr(47));
+$handler = explode(chr(47), $handler);
+$handler = array_filter($handler, 'strlen');
+$handler = array_values($handler);
+$handler = reset($handler);
+
+if ($handler !== 'authorize') $handler = 'redirect';
+
+include BASE_HANDLERS . $handler . chr(46) . 'php';
 exit;
