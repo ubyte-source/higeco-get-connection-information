@@ -14,7 +14,7 @@ final class IAM
 		// application basename set on identity and access management
 		Define::CONFIGURATION_APPLICATION_BASENAME => 'radar',
 		// application key set on identity and access management
-		Define::CONFIGURATION_APPLICATION_KEY => '77057620',
+		Define::CONFIGURATION_APPLICATION_KEY => '96518971',
 		// server endpoint to connect identity and access management
 		Define::CONFIGURATION_HOST_IAM => 'https://login.energia-europa.com/',
 		// cookie name for this site
