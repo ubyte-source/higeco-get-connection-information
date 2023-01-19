@@ -6,7 +6,7 @@ FORTIGATE_HOST="https://${FORTIGATE}:${FORTIGATE_PORT}"
 PROXY_CONNECTION="http://${PROXY}:${PROXY_PORT}/"
 
 decode() {
-    echo ${1} | base64 --decode | jq -r ${2}
+    echo ${1} | base64 -d | jq -r ${2}
     return 0
 }
 
