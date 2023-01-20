@@ -6,7 +6,7 @@ FORTIGATE_HOST="https://${FORTIGATE}:${FORTIGATE_PORT}"
 PROXY_CONNECTION="http://${PROXY}:${PROXY_PORT}/"
 
 decode() {
-    echo ${1} | base64 -d | jq -r ${2}
+    echo "$1" | base64 -d | $JQ -rc "${2}"
     return 0
 }
 
@@ -54,11 +54,10 @@ Retry() {
 }
 
 ip2int() {
-    local ip="${1}"
-    local ipa=$(echo "${ip}" | cut -d '.' -f1)
-    local ipb=$(echo "${ip}" | cut -d '.' -f2)
-    local ipc=$(echo "${ip}" | cut -d '.' -f3)
-    local ipd=$(echo "${ip}" | cut -d '.' -f4)
+    local ipa=$(echo "${1}" | cut -d '.' -f1)
+    local ipb=$(echo "${1}" | cut -d '.' -f2)
+    local ipc=$(echo "${1}" | cut -d '.' -f3)
+    local ipd=$(echo "${1}" | cut -d '.' -f4)
 
     echo $(( ipa * 256**3 + ipb * 256**2 + ipc * 256 + ipd ))
 
@@ -66,13 +65,14 @@ ip2int() {
 }
 
 check() {
+    local response=1
     local subnet=$(echo "${1}" | cut -d '/' -f1)
     local cidr=$(echo "${1}" | cut -d '/' -f2)
     local netmask=$(( 0xFFFFFFFF << $(( 32 - ${cidr} )) ))
-    local id=$(( netmask & $(ip2int ${2}) ))
-    local subnet=$(( netmask & $(ip2int ${subnet}) ))
+    local id=$(( netmask & $(ip2int "${2}") ))
+    local subnet=$(( netmask & $(ip2int "${subnet}") ))
 
-    [ "${id}" == "${subnet}" ] && response=0 || response=1
+    [ "${id}" = "${subnet}" ] && response=0
 
     return $response
 }
@@ -85,14 +85,13 @@ getPeer() {
         if [ "$net" = "0.0.0.0-255.255.255.255" ] ; then
             continue
         fi
-        local ip=$(cut -f1 -d "/" <<< "${1}")
         if [[ "$net" == *"/"* ]] ; then
             local max=$($IPCALC --maxaddr "$net" | sed 's/MAXADDR=//g')
             local min=$($IPCALC --minaddr "$net" | sed 's/MINADDR=//g')
             local net="${min}-${max}"
         fi
         local cidr=$($IPCALC -d "$net" | sed -n '2p' | awk '{print $2}')
-        check $cidr $ip
+        check "$cidr" "${1}"
         if [ $? -eq 0 ] ; then
             echo $peer
             return 0
@@ -181,7 +180,7 @@ insert() {
     return 0
 }
 
-check() {
+connectivity() {
     local QUERY='[{"act":"getStatus"}]'
     local status=$($CURL -k -s -X POST --data "query=${QUERY}" --output /dev/null --connect-timeout 24 --retry 4 --write-out '%{http_code}\n' --compressed "$PROXY_CONNECTION/userCgi?${PROXY_CONNECTION_PASS}")
     if [ "200" = "$status" ] ; then
@@ -281,7 +280,7 @@ obtain() {
     return 0
 }
 
-check
+connectivity
 if [ $? -ne 0 ] ; then
     printf '{"status": false, "device": "%s", "notice": "%s"}' "${HIGECO}" "Have an inbound connectivity problem."
     exit 1
