@@ -8,8 +8,8 @@ IPCALC=/usr/bin/ipcalc
 SSHPASS=/usr/bin/sshpass
 SSH=/usr/bin/ssh
 
-echo "HTTP/1.0 200 OK"
-echo "Content-type: application/json\n\n"
+echo "HTTP/1.1 200 OK"
+echo "Content-type: application/json"
 echo ""
 
 declare -a RESPONSE=()
