@@ -120,35 +120,15 @@ getMAC() {
     return 0
 }
 
-getPublic() {
-    OpenSSH ${1} 'wget -q -T 24 -t 4 -O- "http://wtfismyip.com/text"'
-    return 0
-}
-
-getTraceroute() {
-    OpenSSH ${1} "traceroute -In $1 | tail -n +2 | awk '{print $2}'"
-    return 0
-}
-
 getOUI() {
     local EXTRACTOR='.result.company'
-    if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
-        $CURL -k --silent --connect-timeout 24 --retry 4 "https://macvendors.co/api/$3" | $JQ -rc "${EXTRACTOR}"
-    else
-        local vendor=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- \"http://macvendors.co/api/$3\"")
-        $JQ -rc "${EXTRACTOR}" <<< "$vendor"
-    fi
+    $CURL -k --silent --connect-timeout 24 --retry 4 "https://macvendors.co/api/$3" | $JQ -rc "${EXTRACTOR}"
     return 0
 }
 
 getISP() {
     local EXTRACTOR='.org'
-    if [ "$2" = "ipsec-ptp" ] || [ "$2" = "nat" ] ; then
-        $CURL -k --silent --connect-timeout 24 --retry 4 "https://ipinfo.io/$3/json" | $JQ -rc "${EXTRACTOR}"
-    else
-        local isp=$(OpenSSH ${1} "wget -q -T 24 -t 4 -O- \"http://ipinfo.io/$3/json\"")
-        $JQ -rc "${EXTRACTOR}" <<< "$isp"
-    fi
+    $CURL -k --silent --connect-timeout 24 --retry 4 "https://ipinfo.io/$3/json" | $JQ -rc "${EXTRACTOR}"
     return 0
 }
 
@@ -256,12 +236,10 @@ obtain() {
     if [ -z "$interface" ] || [ -z "$gateway" ] || [ -z "$private" ] ; then
         return 2
     fi
-    local public='0.0.0.0'
+    local public=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
     local nat=$(GetFromQuerystring "$PROXY_CONNECTION_PASS" 'host')
     if [ "$TYPE" = "ipsec-dialup" ] || [ "$TYPE" = "ipsec-ptp" ] ; then
         public=$(getPeer "$nat")
-    else 
-        public=$(getPublic $SSHPORT)
     fi
     local isp=$(getISP $SSHPORT "$TYPE" "$public")
     if [ "$interface" != "ppp0" ] ; then
