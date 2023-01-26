@@ -253,9 +253,9 @@ obtain() {
     if [ $? -ne 0 ] ; then
         return 1
     fi
-    local time=$(date '+%Y-%m-%d %H:%M')
-    local output='{"status": true, "device": "%s", "data": {"gateway": "%s", "private": "%s", "nat": "%s", "mac": "%s", "oui": "%s", "isp": "%s", "public": "%s", "last": "%s"}}'
-    printf "${output}" "${HIGECO}" "${gateway}" "${private}" "${nat}" "${mac}" "${oui}" "${isp}" "${public}" "${time}"
+    local time=$(date +%s)
+    local output='{"status": true, "device": "%s", "timestamp": "%s", "data": {"gateway": "%s", "private": "%s", "nat": "%s", "mac": "%s", "oui": "%s", "isp": "%s", "public": "%s"}}'
+    printf "${output}" "${HIGECO}" "${time}" "${gateway}" "${private}" "${nat}" "${mac}" "${oui}" "${isp}" "${public}"
     return 0
 }
 
